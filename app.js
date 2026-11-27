@@ -151,12 +151,45 @@ async function mountInput(ff, f) {
   return '/in/' + safe.name;
 }
 
-async function probeDuration(ff, inp) {
+async function probe(ff, inp) {
   ffLog = '';
   try { await ff.exec(['-hide_banner', '-i', inp]); } catch {}
   const m = ffLog.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
-  if (!m) return 0;
-  return (+m[1]) * 3600 + (+m[2]) * 60 + parseFloat(m[3]);
+  const c = ffLog.match(/Audio:\s*([a-z0-9_]+)/i);
+  return {
+    dur: m ? (+m[1]) * 3600 + (+m[2]) * 60 + parseFloat(m[3]) : 0,
+    codec: c ? c[1].toLowerCase() : '',
+  };
+}
+
+// Formats Groq accepts as-is: cut them without re-encoding (very fast, even on phones).
+const COPY = {
+  opus: ['ogg', 'ogg', 'audio/ogg'], vorbis: ['ogg', 'ogg', 'audio/ogg'],
+  aac: ['ipod', 'm4a', 'audio/mp4'], mp3: ['mp3', 'mp3', 'audio/mpeg'], flac: ['flac', 'flac', 'audio/flac'],
+};
+const DIRECT_EXT = ['ogg', 'opus', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'webm', 'wav', 'flac'];
+const GROQ_MAX = 24 * 1024 * 1024;
+
+async function runFF(ff, args, out) {
+  ffLog = '';
+  try { await ff.exec(args); } catch {}
+  let data;
+  try { data = await ff.readFile(out); } catch { data = new Uint8Array(0); }
+  try { await ff.deleteFile(out); } catch {}
+  return data;
+}
+
+async function cutFast(ff, inp, start, len, codec) {
+  const head = ['-hide_banner', '-nostdin', '-y', '-ss', String(start), '-t', String(len), '-i', inp, '-vn', '-map', '0:a:0'];
+  const cp = COPY[codec];
+  if (cp) {
+    const out = 'seg.' + cp[1];
+    const data = await runFF(ff, [...head, '-c:a', 'copy', '-f', cp[0], out], out);
+    if (data.byteLength > 800 && data.byteLength <= GROQ_MAX) return { data, ext: cp[1], type: cp[2] };
+  }
+  const data = await runFF(ff, [...head, '-ac', '1', '-ar', '16000', '-c:a', 'libopus', '-b:a', '32k',
+    '-application', 'voip', '-compression_level', '0', '-f', 'ogg', 'seg.ogg'], 'seg.ogg');
+  return { data, ext: 'ogg', type: 'audio/ogg' };
 }
 
 async function cut(ff, inp, start, len, kind) {
@@ -174,13 +207,13 @@ async function cut(ff, inp, start, len, kind) {
 }
 
 // ---------- engines ----------
-async function groqChunk(bytes, i) {
+async function groqChunk(piece, i) {
   const key = $('key').value.trim();
   const lang = $('lang').value;
   const prompt = PROMPTS[$('script').value];
   for (let attempt = 0; attempt < 30; attempt++) {
     const fd = new FormData();
-    fd.append('file', new Blob([bytes], { type: 'audio/ogg' }), `part${i + 1}.ogg`);
+    fd.append('file', new Blob([piece.data], { type: piece.type }), `part${i + 1}.${piece.ext}`);
     fd.append('model', 'whisper-large-v3');
     fd.append('response_format', 'json');
     fd.append('temperature', '0');
@@ -277,10 +310,21 @@ async function run() {
   await lockScreen();
   const t0 = Date.now();
   try {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (mode === 'fast' && file.size <= GROQ_MAX && DIRECT_EXT.includes(ext)) {
+      // Small enough: send the file as it is, no cutting needed.
+      status('Converting…');
+      sub(fmtSize(file.size) + ' file, sending in one go');
+      parts[0] = await groqChunk({ data: file, ext, type: file.type || 'audio/' + ext }, 0);
+      showText();
+      bar(1); status(`Done in ${fmtTime((Date.now() - t0) / 1000)}. Tap Copy.`, 'okc'); sub('');
+      $('outBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     const ff = await getFFmpeg();
     const inp = await mountInput(ff, file);
     status('Reading the audio…');
-    const dur = await probeDuration(ff, inp);
+    const { dur, codec } = await probe(ff, inp);
     if (mode === 'local') await loadModel();
 
     const seg = mode === 'fast' ? FAST_SEG : LOCAL_SEG;
@@ -294,7 +338,8 @@ async function run() {
       if (dur && start >= dur) break;
       const label = total ? `Part ${i + 1} of ${total}` : `Part ${i + 1}`;
       status(`${label}: preparing audio…`);
-      const bytes = await cut(ff, inp, start, seg, mode);
+      const piece = mode === 'fast' ? await cutFast(ff, inp, start, seg, codec) : null;
+      const bytes = piece ? piece.data : await cut(ff, inp, start, seg, mode);
       if (bytes.byteLength < (mode === 'fast' ? 800 : 3200)) {
         if (!dur || i === 0) {
           if (i === 0) throw new Error('Could not read any sound from this file. Is it really an audio file?');
@@ -315,10 +360,10 @@ async function run() {
       if (mode === 'fast') {
         // Upload this piece in the background and start cutting the next one.
         status(`${label}: sending…`);
-        const job = groqChunk(bytes, i).then(finish);
+        const job = groqChunk(piece, i).then(finish);
         inflight.add(job);
         job.catch((e) => { jobErr = jobErr || e; stopFlag = true; }).finally(() => inflight.delete(job));
-        if (inflight.size >= 3) await Promise.race(inflight).catch(() => {});
+        if (inflight.size >= 4) await Promise.race(inflight).catch(() => {});
       } else {
         status(`${label}: listening…`);
         finish(await localChunk(bytes));
