@@ -16,7 +16,7 @@ const PROMPTS = {
 };
 
 let file = null;
-let mode = store.get('mode') || 'fast';
+let mode = store.get('mode2') || 'local';
 let running = false;
 let stopFlag = false;
 let ffmpeg = null;
@@ -33,7 +33,7 @@ $('out').value = store.get('lastText');
 if ($('out').value) { $('outBox').hidden = false; updateCount(); }
 
 function setMode(m) {
-  mode = m; store.set('mode', m);
+  mode = m; store.set('mode2', m);
   $('mFast').setAttribute('aria-pressed', m === 'fast');
   $('mLocal').setAttribute('aria-pressed', m === 'local');
   $('fastBox').hidden = m !== 'fast' || !!PROXY;
@@ -237,7 +237,7 @@ function getWorker() {
     }
   };
   worker.onerror = (e) => {
-    for (const [, p] of pending) p.rej(new Error('Could not load or run the speech model. Check your internet, or try the Base model or fast mode.'));
+    for (const [, p] of pending) p.rej(new Error('Could not load or run the speech model. Check your internet, or try the Base model or Turbo.'));
     pending.clear();
     worker = null;
   };
@@ -247,7 +247,7 @@ const dl = {};
 function loadModel() {
   status('Downloading speech model (one time)…');
   bar(0);
-  const device = 'wasm';
+  const device = navigator.gpu && $('model').value.endsWith('base') ? 'webgpu' : 'wasm';
   return new Promise((res, rej) => {
     pending.set('load', { res, rej });
     getWorker().postMessage({ type: 'load', model: $('model').value, device });

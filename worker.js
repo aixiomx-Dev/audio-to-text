@@ -9,7 +9,9 @@ let loadedKey = '';
 async function load(model, device) {
   const key = model + '|' + device;
   if (asr && loadedKey === key) return;
-  const dtype = { encoder_model: 'q8', decoder_model_merged: 'q8' };
+  const dtype = device === 'webgpu'
+    ? { encoder_model: 'fp32', decoder_model_merged: 'q4' }
+    : { encoder_model: 'q8', decoder_model_merged: 'q8' };
   asr = await pipeline('automatic-speech-recognition', model, {
     device,
     dtype,

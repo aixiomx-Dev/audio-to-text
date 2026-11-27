@@ -81,23 +81,23 @@ footer{color:var(--mute);font-size:13px;text-align:center;padding:0 16px 30px;ma
     <input type="file" id="file" accept="audio/*,video/*,.opus,.ogg,.m4a,.mp3,.wav,.aac,.amr,.flac,.webm,.mp4">
 
     <div class="seg" role="group" aria-label="How to convert">
-      <button type="button" id="mFast" aria-pressed="true">Fast mode<small>Best Tamil, free key</small></button>
-      <button type="button" id="mLocal" aria-pressed="false">On this phone<small>No account, slower</small></button>
+      <button type="button" id="mLocal" aria-pressed="true">Free, no key<small>Runs on this phone</small></button>
+      <button type="button" id="mFast" aria-pressed="false">Turbo<small>Best Tamil, needs free key</small></button>
     </div>
 
-    <div id="fastBox">
+    <div id="fastBox" hidden>
       <label for="key">Groq API key (free)</label>
       <input type="password" id="key" placeholder="gsk_..." autocomplete="off" spellcheck="false">
       <p class="hint">Get one free at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. It stays saved only on this phone and is sent only to Groq.</p>
     </div>
 
-    <div id="localBox" hidden>
+    <div id="localBox">
       <label for="model">Model</label>
       <select id="model">
-        <option value="onnx-community/whisper-base">Base: quicker, about 80 MB download</option>
-        <option value="onnx-community/whisper-small">Small: better Tamil, about 250 MB download</option>
+        <option value="onnx-community/whisper-base">Base: quicker (80 MB)</option>
+        <option value="onnx-community/whisper-small">Small: better Tamil (250 MB)</option>
       </select>
-      <p class="hint">Runs fully on your phone. The model downloads once. Long audio can take as long as the audio itself, or longer.</p>
+      <p class="hint">Nothing to sign up for. The model downloads once (on Wi-Fi is best), then your audio never leaves the phone. Newer phones with Chrome are much faster.</p>
     </div>
 
     <div class="grid2">
@@ -116,7 +116,7 @@ footer{color:var(--mute);font-size:13px;text-align:center;padding:0 16px 30px;ma
           <option value="tamil">Tamil letters (தமிழ்)</option>
           <option value="tanglish">English letters (Tanglish)</option>
         </select>
-        <p class="hint">A nudge for fast mode, not a guarantee.</p>
+        <p class="hint">A nudge, not a guarantee.</p>
       </div>
     </div>
 
@@ -147,7 +147,7 @@ footer{color:var(--mute);font-size:13px;text-align:center;padding:0 16px 30px;ma
   </section>
 </main>
 
-<footer>Free and open. Your audio is never stored by this site. In fast mode the audio goes to Groq to be converted; on-phone mode keeps it on your phone. Uses Whisper, ffmpeg.wasm and transformers.js.</footer>
+<footer>Free and open. Your audio is never stored by this site. Free mode keeps your audio on your phone; Turbo mode sends it to Groq. Uses Whisper, ffmpeg.wasm and transformers.js.</footer>
 
 <script type="module" src="app.js"></script>
 </body>
