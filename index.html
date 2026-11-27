@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio to text</title>
+<meta name="description" content="Free audio to text. Upload a big WhatsApp audio clip and get the text with one Copy button. Works with Tamil and English.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%230f3d3a%27/%3E%3Crect x=%2712%27 y=%276%27 width=%278%27 height=%2714%27 rx=%274%27 fill=%27%23ff6b4a%27/%3E%3C/svg%3E">
+<meta name="theme-color" content="#0f3d3a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: calm, quick, phone-first utility
+   IDEA: a voice note turning into a written note
+   PICTURE: the working form itself, file drop at the top
+   COLOUR and TYPE: deep teal ground band, white card, coral accent; Space Grotesk + Inter
+   LAYOUT: one centred column, max 720px, controls stack on phones */
+:root{color-scheme:light dark;
+  --bg:light-dark(#f4f7f6,#0b1514);--band:light-dark(#0f3d3a,#0d2826);--card:light-dark(#fff,#12201f);
+  --ink:light-dark(#101817,#e7efed);--mute:light-dark(#5a6966,#94a6a2);--line:light-dark(#dbe4e2,#243634);
+  --acc:#ff6b4a;--acc2:light-dark(#0f3d3a,#5fd1c2);--ok:light-dark(#0a7d55,#4cd39b);--bad:light-dark(#b42318,#ff8a7a)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+header{background:var(--band);color:#fff;padding:28px max(5vw,16px) 84px}
+header .in,main{max-width:720px;margin:0 auto}
+h1{font:600 clamp(30px,7vw,44px)/1.05 "Space Grotesk",Inter,sans-serif;margin:0 0 8px;text-wrap:balance}
+header p{margin:0;color:#cfe3df;max-width:60ch}
+main{padding:0 max(4vw,12px) 40px;margin-top:-60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 6px 24px rgb(0 0 0 / .06)}
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;
+  border:2px dashed var(--line);border-radius:14px;padding:26px 14px;cursor:pointer;min-height:150px;transition:border-color .2s,background .2s}
+.drop:hover,.drop.over{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 6%,transparent)}
+.drop svg{width:56px;height:56px}
+.drop b{font-size:18px}.drop small{color:var(--mute)}
+#file{position:absolute;width:1px;height:1px;opacity:0}
+.fname{font-weight:600;overflow-wrap:anywhere}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg);border-radius:12px;padding:4px;margin:14px 0}
+.seg button{border:0;background:transparent;color:var(--ink);border-radius:9px;min-height:44px;font:500 15px Inter,sans-serif;cursor:pointer;padding:6px}
+.seg button[aria-pressed=true]{background:var(--card);box-shadow:0 1px 4px rgb(0 0 0 / .12);color:var(--acc2);font-weight:600}
+.seg small{display:block;font-weight:400;color:var(--mute);font-size:13px}
+label{font-weight:500;font-size:14px;display:block;margin:10px 0 4px}
+input[type=password],input[type=text],select{width:100%;font:16px Inter,sans-serif;padding:10px 12px;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.hint{color:var(--mute);font-size:13px;margin:4px 0 0}
+a{color:var(--acc2)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:0 12px}
+.btn{border:0;border-radius:12px;min-height:48px;padding:10px 18px;font:600 16px Inter,sans-serif;cursor:pointer}
+.btn.main{background:var(--acc);color:#fff;width:100%;margin-top:16px;font-size:17px}
+.btn.main:disabled{opacity:.45;cursor:not-allowed}
+.btn.soft{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.bar{height:10px;background:var(--bg);border-radius:99px;overflow:hidden;margin:12px 0 8px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc2),var(--acc));transition:width .4s}
+#status{font-weight:500}#sub{color:var(--mute);font-size:14px}
+.err{color:var(--bad)}.okc{color:var(--ok)}
+.out-head{display:flex;justify-content:space-between;align-items:center;gap:10px;position:sticky;top:0;background:var(--card);padding:4px 0 10px;z-index:1}
+.out-head h2{font:600 20px "Space Grotesk",Inter,sans-serif;margin:0}
+#copy{background:var(--acc2);color:light-dark(#fff,#0b1514);min-width:110px}
+#copy.done{background:var(--ok)}
+textarea{width:100%;min-height:260px;font:16px/1.6 Inter,"Noto Sans Tamil",system-ui,sans-serif;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical}
+.tools{margin-top:10px}
+footer{color:var(--mute);font-size:13px;text-align:center;padding:0 16px 30px;max-width:720px;margin:0 auto}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="in">
+  <h1>Audio to text</h1>
+  <p>Too big for WhatsApp? Drop the audio here, get the words as text, copy and send. Tamil, English and mixed.</p>
+</div></header>
+
+<main>
+  <section class="card">
+    <label class="drop" id="drop" for="file">
+      <svg viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="27" fill="#ff6b4a" opacity=".14"/><rect x="22" y="12" width="12" height="22" rx="6" fill="#ff6b4a"/><path d="M16 27a12 12 0 0 0 24 0M28 39v6M21 45h14" stroke="#ff6b4a" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+      <b id="dropTitle">Choose audio file</b>
+      <small id="dropSub">opus, ogg, m4a, mp3, wav, aac, amr, even video. Big files are fine.</small>
+    </label>
+    <input type="file" id="file" accept="audio/*,video/*,.opus,.ogg,.m4a,.mp3,.wav,.aac,.amr,.flac,.webm,.mp4">
+
+    <div class="seg" role="group" aria-label="How to convert">
+      <button type="button" id="mFast" aria-pressed="true">Fast mode<small>Best Tamil, free key</small></button>
+      <button type="button" id="mLocal" aria-pressed="false">On this phone<small>No account, slower</small></button>
+    </div>
+
+    <div id="fastBox">
+      <label for="key">Groq API key (free)</label>
+      <input type="password" id="key" placeholder="gsk_..." autocomplete="off" spellcheck="false">
+      <p class="hint">Get one free at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. It stays saved only on this phone and is sent only to Groq.</p>
+    </div>
+
+    <div id="localBox" hidden>
+      <label for="model">Model</label>
+      <select id="model">
+        <option value="onnx-community/whisper-base">Base: quicker, about 80 MB download</option>
+        <option value="onnx-community/whisper-small">Small: better Tamil, about 250 MB download</option>
+      </select>
+      <p class="hint">Runs fully on your phone. The model downloads once. Long audio can take as long as the audio itself, or longer.</p>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <label for="lang">Spoken language</label>
+        <select id="lang">
+          <option value="">Auto detect (mixed)</option>
+          <option value="ta">Tamil</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div id="scriptBox">
+        <label for="script">Tamil written as</label>
+        <select id="script">
+          <option value="">Whatever the model picks</option>
+          <option value="tamil">Tamil letters (தமிழ்)</option>
+          <option value="tanglish">English letters (Tanglish)</option>
+        </select>
+        <p class="hint">A nudge for fast mode, not a guarantee.</p>
+      </div>
+    </div>
+
+    <button class="btn main" id="go" disabled>Convert to text</button>
+  </section>
+
+  <section class="card" id="progBox" hidden aria-live="polite">
+    <div id="status">Starting…</div>
+    <div class="bar"><i id="barI"></i></div>
+    <div class="row" style="justify-content:space-between">
+      <span id="sub"></span>
+      <button class="btn soft" id="stop" type="button" hidden>Stop</button>
+    </div>
+    <p class="hint">Keep this screen open until it finishes.</p>
+  </section>
+
+  <section class="card" id="outBox" hidden>
+    <div class="out-head">
+      <h2>Text</h2>
+      <button class="btn" id="copy" type="button">Copy</button>
+    </div>
+    <textarea id="out" aria-label="Transcript" placeholder="Text will appear here as it is ready."></textarea>
+    <div class="row tools">
+      <button class="btn soft" id="dl" type="button">Save .txt</button>
+      <button class="btn soft" id="clear" type="button">Clear</button>
+      <span class="hint" id="count"></span>
+    </div>
+  </section>
+</main>
+
+<footer>Free and open. Your audio is never stored by this site. In fast mode the audio goes to Groq to be converted; on-phone mode keeps it on your phone. Uses Whisper, ffmpeg.wasm and transformers.js.</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
