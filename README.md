@@ -16,3 +16,13 @@ Free website that turns a big audio file (WhatsApp voice notes, recordings up to
 No server, no build step: plain static files served by GitHub Pages.
 
 Uses [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) (core is GPL-2.0+), [transformers.js](https://github.com/huggingface/transformers.js) and OpenAI Whisper models.
+
+## No-key mode (key hidden on Cloudflare)
+
+`proxy/worker.js` is a free Cloudflare Worker that holds the site owner's Groq key, so visitors don't need one.
+
+1. Cloudflare dashboard → Workers & Pages → Create → Worker → Deploy, then Edit code, paste `proxy/worker.js`, Deploy.
+2. Worker → Settings → Variables and Secrets → Add → type Secret, name `GROQ_KEY`, value your Groq key.
+3. Put the worker URL in `PROXY` at the top of `app.js`. The key box then disappears from the site.
+
+Groq's free limit is shared by every visitor (roughly 2 hours of audio per hour, 8 hours per day).
